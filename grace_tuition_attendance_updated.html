@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grace Tuition Attendance</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f4f6fb}
+*{box-sizing:border-box}body{margin:0;padding:18px}.app{max-width:900px;margin:auto}
+header{background:#243b70;color:white;padding:22px;border-radius:18px;margin-bottom:16px}
+h1{margin:0 0 5px;font-size:1.55rem}header p{margin:0;color:#dce5ff}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+button,.tab{border:0;border-radius:10px;padding:10px 14px;font-weight:650;cursor:pointer;background:#e4e9f5;color:#23345c}
+.tab.active,button.primary{background:#29477f;color:white}
+.panel{background:white;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 3px 14px #1b2c5010}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+input[type=date],input[type=month],input[type=text]{padding:10px;border:1px solid #ccd4e4;border-radius:9px;font:inherit;max-width:100%}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.stat{background:#f1f4fa;border-radius:12px;padding:12px}.stat b{display:block;font-size:1.5rem}.stat span{font-size:.83rem;color:#59657b}
+.search{width:100%;margin:10px 0}
+.student{display:grid;grid-template-columns:34px 1fr auto auto;gap:7px;align-items:center;padding:10px 4px;border-bottom:1px solid #edf0f5}
+.student:last-child{border:0}.num{color:#7b8496}.name{font-weight:600}
+.pill{border-radius:9px;padding:7px 10px;font-size:.86rem}
+.present{background:#e2f6eb;color:#17643a}.absent{background:#ffebeb;color:#9d2525}.unmarked{background:#f0f2f6;color:#59657b}\n.mark-btn{border:1px solid #d5dbe7;background:#fff;color:#59657b;padding:8px 10px;border-radius:9px;font-size:.84rem;min-width:76px}.mark-btn.present-on{background:#d9f5e4;border:2px solid #239653;color:#17643a}.mark-btn.absent-on{background:#ffe0e0;border:2px solid #d34a4a;color:#982626}.mark-btn .tick{font-weight:900;margin-right:4px}.student-name{color:#172033}
+.small{font-size:.85rem;color:#657087}.hidden{display:none}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #edf0f5}th{font-size:.85rem;color:#657087}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.danger{background:#ffeded;color:#9d2525}
+@media(max-width:560px){body{padding:10px}.student{grid-template-columns:25px 1fr auto auto;gap:4px}.student .status-text{display:none}.mark-btn{min-width:0;padding:8px 7px;font-size:.78rem}.stats{gap:6px}.stat{padding:9px}.stat b{font-size:1.25rem}th,td{padding:8px 4px;font-size:.88rem}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>🎓 Grace Tuition</h1><p>Teacher attendance register · Daily attendance & monthly absence totals</p></header>
+<nav>
+<button class="tab active" data-tab="daily">Daily attendance</button>
+<button class="tab" data-tab="monthly">Monthly report</button>
+<button class="tab" data-tab="history">Absence history</button>
+<button class="tab" data-tab="fees">Fees</button>
+<button class="tab" data-tab="students">Student list</button>
+</nav>
+
+<section id="daily" class="panel">
+ <div class="row"><h2>Daily attendance</h2><label>Date <input id="day" type="date"></label></div>
+ <div class="stats">
+  <div class="stat"><b id="total">49</b><span>Total students</span></div>
+  <div class="stat"><b id="presentCount">0</b><span>Present</span></div>
+  <div class="stat"><b id="absentCount">0</b><span>Absent</span></div>
+ </div>
+ <div class="row"><span class="small" id="saveState">Changes save automatically on this device.</span>
+ <div class="actions"><button class="primary" id="allPresent">Mark all present</button><button id="clearDay">Clear this day</button></div></div>
+ <input class="search" id="dailySearch" type="text" placeholder="Search student name…">
+ <div id="dailyList"></div>
+</section>
+
+<section id="monthly" class="panel hidden">
+ <div class="row"><h2>Monthly absence report</h2><label>Month <input id="month" type="month"></label></div>
+ <p class="small">Absent days are calculated automatically from dates marked Absent in Daily attendance.</p>
+ <div class="row"><strong id="monthSummary">0 recorded absences</strong><button id="exportMonth">Export monthly CSV</button></div>
+ <input class="search" id="monthSearch" type="text" placeholder="Search student name…">
+ <div style="overflow-x:auto"><table><thead><tr><th>No.</th><th>Student name</th><th>Absent days</th></tr></thead><tbody id="monthRows"></tbody></table></div>
+</section>
+
+<section id="history" class="panel hidden">
+ <div class="row"><h2>Student-wise absence history</h2><button id="exportHistory">Export absence history CSV</button></div>
+ <p class="small">Every recorded absence is listed with its date. Add or edit the reason beside each date; changes are saved automatically.</p>
+ <input class="search" id="historySearch" type="text" placeholder="Search student name…">
+ <div id="historyList"></div>
+</section>
+
+<section id="fees" class="panel hidden">
+ <div class="row"><h2>Monthly fees</h2><label>Month <input id="feeMonth" type="month"></label></div>
+ <p class="small">Set each student's monthly fee, then record every payment with its actual payment date. Partial payments are supported; balances update automatically.</p>
+ <div class="stats">
+  <div class="stat"><b id="feeDueTotal">₹0</b><span>Total fees due</span></div>
+  <div class="stat"><b id="feePaidTotal">₹0</b><span>Collected</span></div>
+  <div class="stat"><b id="feeBalanceTotal">₹0</b><span>Remaining balance</span></div>
+ </div>
+ <div class="row"><strong id="feeSummary">0 paid · 0 part-paid · 0 not paid</strong><button id="exportFees">Export monthly fees CSV</button></div>
+ <input class="search" id="feeSearch" type="text" placeholder="Search student name…">
+ <div id="feeList"></div>
+</section>
+
+<section id="students" class="panel hidden">
+ <h2>Student list</h2><p class="small">49 names loaded. You can add more students or rename a student here.</p>
+ <form id="addForm" class="row"><input id="newName" type="text" placeholder="New student name" required><button class="primary">Add student</button></form>
+ <input class="search" id="studentSearch" type="text" placeholder="Search student name…">
+ <div id="studentList"></div>
+ <div class="actions"><button id="exportStudents">Export student list</button></div>
+</section>
+<p class="small">Privacy note: attendance, absence reasons and fee records are stored in this browser on this device. They are not uploaded or shared online. Export CSV backups regularly.</p>
+</div>
+<script>
+const initial = ["Joyce","Vyshnavi","Harshitha","Seshu","Varshith","Praveen","Shanvitha","Lucky","Chaithra","JS Pragna","Rishi","Praisy","Suhasini","Mahi","Gracey","Sathwik","Leon","Sravani","Rahul","Gowtham","Syam","Anuhya","Manudeep","Chandrakala","Aishwarya","Smiley","Valencia","Amulya","Hemalatha","Amulya (Inter)","Happy","Akshara","Shina","Sony","Praneeth","Anu","Sampath","Jay Babu","Slicy","Fruity","Mercy","Hansi","Rohn","Karthik","Yashwanth","Nodiya","Santhoshi","Thanush","Rio"];
+const load=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
+let students=load("grace_students",initial.map((name,i)=>({id:i+1,name})));
+let records=load("grace_records",{});
+let absenceReasons=load("grace_absence_reasons",{});
+let monthlyFees=load("grace_monthly_fees",{});
+let feePayments=load("grace_fee_payments",[]);
+const feeAccountNames=["Joyce","Vyshnavi","Harshitha","Suhasini","Varshith","Mahi","Lucky","Chaithra","Pragna","Rishi","Pravallikaakka","Syam","Manudeep","Nodiya","Rahul","Gowtham","Smiley","Valencia","Hemalatha","Amulya","Rio","Happy","Akshara","Shina","Anu","Slicy","Rohan & Sis","Karthik","Santhoshi","Thanush"];
+const feeAccounts=feeAccountNames.map((name,i)=>({id:"fee-"+(i+1),name}));
+if(!load("grace_fee_accounts_v1_migrated",false)){
+ const norm=v=>String(v||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+ feeAccounts.forEach(account=>{
+   const aliases=account.name==="Pragna"?["JS Pragna"]:account.name==="Rohan & Sis"?["Rohn"]: [account.name];
+   const oldStudent=students.find(st=>aliases.some(alias=>norm(st.name)===norm(alias)));
+   if(oldStudent){
+     Object.keys(monthlyFees).forEach(month=>{if(monthlyFees[month]?.[oldStudent.id]!==undefined){monthlyFees[month][account.id]=monthlyFees[month][oldStudent.id];}});
+     feePayments.forEach(payment=>{if(String(payment.studentId)===String(oldStudent.id))payment.studentId=account.id;});
+   }
+ });
+ localStorage.setItem("grace_fee_accounts_v1_migrated","true");
+ localStorage.setItem("grace_monthly_fees",JSON.stringify(monthlyFees));
+ localStorage.setItem("grace_fee_payments",JSON.stringify(feePayments));
+}
+const $=id=>document.getElementById(id);
+const today=new Date(), iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+$("day").value=iso(today);$("month").value=iso(today).slice(0,7);$("feeMonth").value=iso(today).slice(0,7);
+function persist(){localStorage.setItem("grace_students",JSON.stringify(students));localStorage.setItem("grace_records",JSON.stringify(records));localStorage.setItem("grace_absence_reasons",JSON.stringify(absenceReasons));localStorage.setItem("grace_monthly_fees",JSON.stringify(monthlyFees));localStorage.setItem("grace_fee_payments",JSON.stringify(feePayments));}
+function status(id,date=$("day").value){return records[date]?.[id]||"unmarked"}
+function reasonFor(id,date){return absenceReasons[date]?.[id]||""}
+function setReason(id,date,value){absenceReasons[date]??={};if(value.trim())absenceReasons[date][id]=value.trim();else delete absenceReasons[date][id];if(!Object.keys(absenceReasons[date]).length)delete absenceReasons[date];persist();renderHistory();}
+function setStatus(id,value){const d=$("day").value;records[d]??={};if(value==="unmarked"){delete records[d][id];if(absenceReasons[d]){delete absenceReasons[d][id];if(!Object.keys(absenceReasons[d]).length)delete absenceReasons[d];}}else records[d][id]=value;if(!Object.keys(records[d]).length)delete records[d];persist();renderDaily();renderMonthly();renderHistory();}
+function renderDaily(){
+ const d=$("day").value, list=$("dailyList"), q=$("dailySearch").value.toLowerCase();list.innerHTML="";
+ let p=0,a=0;students.forEach(s=>{let st=status(s.id,d);if(st==="present")p++;if(st==="absent")a++;
+ if(!s.name.toLowerCase().includes(q))return;
+ const el=document.createElement("div");el.className="student";
+ const num=document.createElement("span");num.className="num";num.textContent=s.id;
+ const name=document.createElement("span");name.className="name student-name";name.textContent=s.name;
+ const presentBtn=document.createElement("button");presentBtn.type="button";presentBtn.className="mark-btn"+(st==="present"?" present-on":"");presentBtn.innerHTML=(st==="present"?"<span class='tick'>✓</span>":"")+"Present";presentBtn.setAttribute("aria-label","Mark "+s.name+" present");presentBtn.setAttribute("aria-pressed",st==="present");presentBtn.addEventListener("click",()=>setStatus(s.id,st==="present"?"unmarked":"present"));
+ const absentBtn=document.createElement("button");absentBtn.type="button";absentBtn.className="mark-btn"+(st==="absent"?" absent-on":"");absentBtn.innerHTML=(st==="absent"?"<span class='tick'>✓</span>":"")+"Absent";absentBtn.setAttribute("aria-label","Mark "+s.name+" absent");absentBtn.setAttribute("aria-pressed",st==="absent");absentBtn.addEventListener("click",()=>setStatus(s.id,st==="absent"?"unmarked":"absent"));
+ el.append(num,name,presentBtn,absentBtn);list.append(el);
+ if(st==="absent"){
+   const reasonRow=document.createElement("div");reasonRow.style.cssText="padding:0 4px 10px 38px;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
+   const reasonLabel=document.createElement("label");reasonLabel.className="small";reasonLabel.textContent="Reason:";
+   const reasonInput=document.createElement("input");reasonInput.type="text";reasonInput.placeholder="Enter absence reason…";reasonInput.value=reasonFor(s.id,d);reasonInput.style.cssText="flex:1;min-width:160px";
+   reasonInput.setAttribute("aria-label","Absence reason for "+s.name+" on "+d);
+   reasonInput.addEventListener("change",()=>setReason(s.id,d,reasonInput.value));
+   reasonRow.append(reasonLabel,reasonInput);list.append(reasonRow);
+ }
+ });
+ $("total").textContent=students.length;$("presentCount").textContent=p;$("absentCount").textContent=a;
+ $("saveState").textContent=Object.keys(records[d]||{}).length?`Saved for ${d} on this device.`:"No attendance marked for this date yet.";
+}
+function absentDays(id,month){return Object.entries(records).filter(([date,vals])=>date.startsWith(month)&&vals[id]==="absent").length}
+function renderMonthly(){
+ const m=$("month").value,q=$("monthSearch").value.toLowerCase(),body=$("monthRows");body.innerHTML="";let total=0;
+ students.filter(s=>s.name.toLowerCase().includes(q)).forEach(s=>{let n=absentDays(s.id,m);total+=n;let tr=document.createElement("tr");[s.id,s.name,n].forEach(v=>{let td=document.createElement("td");td.textContent=v;tr.append(td)});body.append(tr)});
+ $("monthSummary").textContent=`${total} recorded absence${total===1?"":"s"} in ${m}`;
+}
+function renderHistory(){
+ const q=$("historySearch").value.toLowerCase(),box=$("historyList");box.innerHTML="";
+ let found=0;
+ students.filter(s=>s.name.toLowerCase().includes(q)).forEach(s=>{
+   const absences=Object.keys(records).filter(date=>records[date]?.[s.id]==="absent").sort().reverse();
+   if(!absences.length)return;
+   found+=absences.length;
+   const card=document.createElement("div");card.className="panel";card.style.cssText="box-shadow:none;border:1px solid #edf0f5;margin:10px 0";
+   const heading=document.createElement("h3");heading.textContent=s.name+" · "+absences.length+" absence"+(absences.length===1?"":"s");card.append(heading);
+   absences.forEach(date=>{
+     const row=document.createElement("div");row.style.cssText="display:grid;grid-template-columns:minmax(105px, .7fr) minmax(150px, 1.5fr);gap:8px;align-items:center;padding:8px 0;border-top:1px solid #edf0f5";
+     const dateText=document.createElement("strong");dateText.textContent=date;
+     const reason=document.createElement("input");reason.type="text";reason.placeholder="Reason (add or edit)…";reason.value=reasonFor(s.id,date);reason.setAttribute("aria-label","Reason for "+s.name+" absent on "+date);
+     reason.addEventListener("change",()=>setReason(s.id,date,reason.value));
+     row.append(dateText,reason);card.append(row);
+   });
+   box.append(card);
+ });
+ if(!found){const empty=document.createElement("p");empty.className="small";empty.textContent="No recorded absences found for these students yet.";box.append(empty);}
+}
+function money(n){return "₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});}
+function feeDue(id,month=$("feeMonth").value){return Number(monthlyFees[month]?.[id]||0);}
+function paymentsFor(id,month=$("feeMonth").value){return feePayments.filter(p=>p.studentId===id&&p.date&&p.date.startsWith(month));}
+function paidFor(id,month=$("feeMonth").value){return paymentsFor(id,month).reduce((sum,p)=>sum+Number(p.amount||0),0);}
+function renderFees(){
+ const month=$("feeMonth").value,q=$("feeSearch").value.toLowerCase(),box=$("feeList");box.innerHTML="";
+ let dueTotal=0,paidTotal=0,paidCount=0,partialCount=0,unpaidCount=0;
+ students.filter(s=>s.name.toLowerCase().includes(q)).forEach(s=>{
+  const due=feeDue(s.id,month),paid=paidFor(s.id,month),balance=Math.max(0,due-paid);
+  dueTotal+=due;paidTotal+=paid;
+  const state=due>0?(paid>=due?"Paid":paid>0?"Part-paid":"Not paid"):"Fee not set";
+  if(due>0){if(paid>=due)paidCount++;else if(paid>0)partialCount++;else unpaidCount++;}
+  const card=document.createElement("div");card.className="panel";card.style.cssText="box-shadow:none;border:1px solid #e8edf5;margin:10px 0";
+  const top=document.createElement("div");top.className="row";
+  const title=document.createElement("strong");title.textContent=s.id+". "+s.name;
+  const badge=document.createElement("span");badge.className="pill "+(state==="Paid"?"present":state==="Not paid"?"absent":"unmarked");badge.textContent=state;
+  top.append(title,badge);card.append(top);
+  const amounts=document.createElement("div");amounts.className="row";amounts.style.cssText="justify-content:flex-start;margin:10px 0;gap:16px";
+  const dueLabel=document.createElement("label");dueLabel.className="small";dueLabel.textContent="Monthly fee ";const dueInput=document.createElement("input");dueInput.type="number";dueInput.min="0";dueInput.step="0.01";dueInput.placeholder="Set fee";dueInput.value=monthlyFees[month]?.[s.id]??"";dueInput.style.width="115px";dueInput.addEventListener("change",()=>{monthlyFees[month]??={};if(dueInput.value==="")delete monthlyFees[month][s.id];else monthlyFees[month][s.id]=Math.max(0,Number(dueInput.value)||0);if(!Object.keys(monthlyFees[month]).length)delete monthlyFees[month];persist();renderFees();});dueLabel.append(dueInput);
+  const paidText=document.createElement("span");paidText.innerHTML="Paid: <b>"+money(paid)+"</b>";
+  const balanceText=document.createElement("span");balanceText.innerHTML="Balance: <b>"+money(balance)+"</b>";
+  amounts.append(dueLabel,paidText,balanceText);card.append(amounts);
+  const paymentForm=document.createElement("div");paymentForm.className="row";paymentForm.style.cssText="justify-content:flex-start;gap:8px;margin:8px 0";
+  const date=document.createElement("input");date.type="date";date.value=month===iso(today).slice(0,7)?iso(today):month+"-01";date.setAttribute("aria-label","Payment date for "+s.name);date.title="Automatically starts with today's date for the current month. You can change it.";
+  const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="0.01";amount.placeholder="Amount paid";amount.style.width="130px";amount.setAttribute("aria-label","Payment amount for "+s.name);
+  const add=document.createElement("button");add.className="primary";add.textContent="Add payment";add.addEventListener("click",()=>{const val=Number(amount.value);if(!date.value||!Number.isFinite(val)||val<=0){alert("Enter a valid payment date and amount.");return;}feePayments.push({id:Date.now()+Math.floor(Math.random()*1000),studentId:s.id,date:date.value,amount:val});persist();renderFees();});
+  const paidFull=document.createElement("button");paidFull.className="primary";paidFull.textContent="Mark balance paid";paidFull.title="Records the remaining balance as paid on the selected date.";paidFull.disabled=balance<=0;paidFull.addEventListener("click",()=>{if(!date.value||balance<=0)return;feePayments.push({id:Date.now()+Math.floor(Math.random()*1000),studentId:s.id,date:date.value,amount:balance});persist();renderFees();});
+  paymentForm.append(date,amount,add,paidFull);card.append(paymentForm);
+  const history=paymentsFor(s.id,month).sort((a,b)=>a.date.localeCompare(b.date));
+  if(history.length){const sub=document.createElement("div");sub.className="small";sub.textContent="Payments this month (you can edit date or amount):";card.append(sub);history.forEach(pay=>{const line=document.createElement("div");line.className="row";line.style.cssText="padding:7px 0;border-top:1px solid #edf0f5;justify-content:flex-start;gap:7px";const editDate=document.createElement("input");editDate.type="date";editDate.value=pay.date;editDate.setAttribute("aria-label","Edit payment date");editDate.style.width="145px";const editAmount=document.createElement("input");editAmount.type="number";editAmount.min="0.01";editAmount.step="0.01";editAmount.value=pay.amount;editAmount.setAttribute("aria-label","Edit payment amount");editAmount.style.width="105px";const save=document.createElement("button");save.textContent="Save changes";save.addEventListener("click",()=>{const val=Number(editAmount.value);if(!editDate.value||!Number.isFinite(val)||val<=0){alert("Enter a valid date and amount.");return;}const target=feePayments.find(x=>x.id===pay.id);if(target){target.date=editDate.value;target.amount=val;persist();renderFees();}});const del=document.createElement("button");del.className="danger";del.textContent="Delete";del.style.padding="6px 9px";del.addEventListener("click",()=>{if(confirm("Delete this payment of "+money(pay.amount)+" on "+pay.date+"?")){feePayments=feePayments.filter(x=>x.id!==pay.id);persist();renderFees();}});line.append(editDate,editAmount,save,del);card.append(line);});}
+  box.append(card);
+ });
+ $("feeDueTotal").textContent=money(dueTotal);$("feePaidTotal").textContent=money(paidTotal);$("feeBalanceTotal").textContent=money(Math.max(0,dueTotal-paidTotal));$("feeSummary").textContent=paidCount+" paid · "+partialCount+" part-paid · "+unpaidCount+" not paid";
+}
+function renderStudents(){const q=$("studentSearch").value.toLowerCase(),box=$("studentList");box.innerHTML="";students.filter(s=>s.name.toLowerCase().includes(q)).forEach(s=>{let row=document.createElement("div");row.className="student";let n=document.createElement("span");n.className="num";n.textContent=s.id;let inp=document.createElement("input");inp.type="text";inp.value=s.name;inp.addEventListener("change",()=>{s.name=inp.value.trim()||s.name;persist();renderDaily();renderMonthly();renderStudents()});let del=document.createElement("button");del.className="danger";del.textContent="Remove";del.addEventListener("click",()=>{if(confirm("Remove "+s.name+" and their attendance history?")){students=students.filter(x=>x.id!==s.id);Object.values(records).forEach(r=>delete r[s.id]);persist();renderAll()}});row.append(n,inp,del);box.append(row)})}
+function renderAll(){renderDaily();renderMonthly();renderHistory();renderFees();renderStudents()}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));["daily","monthly","history","fees","students"].forEach(id=>$(id).classList.toggle("hidden",id!==b.dataset.tab));renderAll()}));
+$("day").addEventListener("change",renderDaily);$("month").addEventListener("change",renderMonthly);$("dailySearch").addEventListener("input",renderDaily);$("monthSearch").addEventListener("input",renderMonthly);$("historySearch").addEventListener("input",renderHistory);$("feeMonth").addEventListener("change",renderFees);$("feeSearch").addEventListener("input",renderFees);$("studentSearch").addEventListener("input",renderStudents);
+$("allPresent").addEventListener("click",()=>{const d=$("day").value;records[d]??={};students.forEach(s=>{records[d][s.id]="present";if(absenceReasons[d])delete absenceReasons[d][s.id]});if(absenceReasons[d]&&!Object.keys(absenceReasons[d]).length)delete absenceReasons[d];persist();renderAll()});
+$("clearDay").addEventListener("click",()=>{if(confirm("Clear all attendance marks for this date?")){delete records[$("day").value];delete absenceReasons[$("day").value];persist();renderAll()}});
+$("addForm").addEventListener("submit",e=>{e.preventDefault();let name=$("newName").value.trim();if(!name)return;students.push({id:Math.max(0,...students.map(s=>s.id))+1,name});$("newName").value="";persist();renderAll()});
+function csvDownload(filename,rows){let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\r\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=filename;a.click();URL.revokeObjectURL(a.href)}
+$("exportMonth").addEventListener("click",()=>{let m=$("month").value;csvDownload("grace-tuition-"+m+".csv",[["No.","Student","Absent days"],...students.map(s=>[s.id,s.name,absentDays(s.id,m)])])});
+$("exportStudents").addEventListener("click",()=>csvDownload("grace-tuition-students.csv",[["No.","Student name"],...students.map(s=>[s.id,s.name])]));
+$("exportHistory").addEventListener("click",()=>{let rows=[["Student No.","Student","Absent date","Reason"]];students.forEach(s=>Object.keys(records).filter(date=>records[date]?.[s.id]==="absent").sort().forEach(date=>rows.push([s.id,s.name,date,reasonFor(s.id,date)])));csvDownload("grace-tuition-absence-history.csv",rows)});
+$("exportFees").addEventListener("click",()=>{const m=$("feeMonth").value;let rows=[["No.","Fee account name","Month","Monthly fee","Paid","Balance","Status","Payment date","Payment amount"]];feeAccounts.forEach(s=>{const due=feeDue(s.id,m),paid=paidFor(s.id,m),balance=Math.max(0,due-paid),state=due>0?(paid>=due?"Paid":paid>0?"Part-paid":"Not paid"):"Fee not set",ps=paymentsFor(s.id,m);if(ps.length)ps.forEach(p=>rows.push([s.id,s.name,m,due,paid,balance,state,p.date,p.amount]));else rows.push([s.id,s.name,m,due,paid,balance,state,"",""]);});csvDownload("grace-tuition-fees-"+m+".csv",rows)});
+renderAll();
+</script>
+</body></html>
